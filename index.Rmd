@@ -19,14 +19,17 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Debbie Gonzalez dg37725
 
 #### Introduction 
 
-Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
+I chose to use my Spotify data from the last two months as well as the weather data for the same time period. My Spotify data, StreamingHistory, contains the variables Date, Time, artistName, trackName, and msPlayed. My weather data, Weather, contains the variables Date, Name, Max Temp, Min Temp, Temp, Wind Chill, Conditions, and other weather variables. I acquired my Spotify data straight from Spotify, and I acquired my weather data from www.visualcrossing.com. This data is interesting to me because I wanted to see if I preferred to listen to music on certain weather conditions. I also wanted to see how Spotify does their Spotify Wrapped they do every year, and I was able to do it myself! I expect to see that I listen to Taylor Swift the most since I am a big fan, and I think I will listen to music most on cloudy days. 
 
 ```{R}
 # read your datasets in here, e.g., with read_csv()
+library(tidyverse)
+StreamingHistory <- read_csv("~/project1/StreamingHistory.csv")
+Weather <- read_csv("~/project1/Weather.csv")
 
 ```
 
@@ -35,56 +38,142 @@ Paragraph or two introducing your datasets and variables, why they are interesti
 If your datasets are tidy already, demonstrate that you can reshape data with pivot wider/longer here (e.g., untidy and then retidy). Alternatively, it may be easier to wait until the wrangling section so you can reshape your summary statistics. Note here if you are going to do this.
 
 ```{R}
-# your tidying code (if applicable; can also wait until wrangling section)
+# Here I am making sure both datasets have a common variable. They both share a 
+# date variable, but I had to rename and reformat it as shown below. 
+StreamingHistory <- StreamingHistory %>% separate(endTime, sep = " ", c('Date', "Time"))
+Weather <- Weather %>% rename("Datee" = "Date time")
+
+Weather$Date <- strptime(as.character(Weather$Datee), "%m/%d/%Y")
+Weather$Date <- format(Weather$Date, "%Y-%m-%d")
+Weather <- Weather %>% select(-Datee)
+
+# Here I use pivot wider and pivot longer to untidy then retidy my data. 
+Weather <- Weather %>% 
+    pivot_wider(names_from = Name, values_from  = Date)
+
+Weather <- Weather %>% pivot_longer(16, names_to = "Name", values_to = "Date")
 ```
 
     
 #### Joining/Merging
 
 ```{R}
-# your joining code
+data <- left_join(StreamingHistory, Weather)
 
-# your joining code
+nrow(data)
+nrow(StreamingHistory)
+nrow(Weather)
+
+ncol(data)
+ncol(StreamingHistory)
+ncol(Weather)
+
+length(unique(StreamingHistory$Date))
+length(unique(Weather$Date))
+
+length(which(unique(StreamingHistory$Date) %in% unique(Weather$Date)))
+length(which(unique(Weather$Date) %in% unique(StreamingHistory$Date)))
+
+sum(unique(StreamingHistory$Date) %in% unique(Weather$Date))
+
 ```
 
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+I chose to do a left join because I wanted to keep all the songs. If I did a right join, I was going to lose some songs from my data. The left join allowed me to keep the same number of observations as the StreamingHistory dataset. No observations were dropped and the rows were added together, with Date being the combining variable. The joined data set has 3272 observations and 21 variables. This means it has the same number of observations as StreamingHistory, and the 17+6 variables were added together, but "Date" was common hence there's 21. There are 11 IDs that appear in Weather, but do not appear in StreamingHistory. The two datasets have 55 IDs in common.  
 
 ####  Wrangling
 
 ```{R}
-# your wrangling code
+# Here I use 4 dplyr functions (select, group by, arrange, and filter)
+data %>% select(Date, artistName, Temperature) %>% 
+  group_by(artistName) %>% 
+  arrange(desc(Temperature)) %>% 
+  filter(Temperature<"80") 
 
-# your wrangling code
+data %>% group_by(artistName) %>% summarize(trackName) %>% count() %>% arrange(desc(n))
+  
+data %>% group_by(trackName, artistName) %>% 
+  count(trackName) %>% filter(artistName=="Taylor Swift") %>% arrange(desc(n))
 
-# your wrangling code
+data %>% group_by(artistName, Temperature, Date) %>% count(artistName) %>% arrange(desc(n))
+
+# Here I use 2 variables from my data set to create a new dataset using mutate
+data %>% mutate(TempDiff=`Maximum Temperature`- `Minimum Temperature`)
+
+# Here I use str_replace_all
+data$Time %>% str_replace_all(":00", "nice")
+
+# Here I use summarize
+data %>% summarize(Temperature, Conditions)
+
+# Summary statistics of numeric variables
+data %>% summarize(quantilemsPlayed=quantile(msPlayed))
+data %>% summarize(meanMaxTemp=mean(`Maximum Temperature`))
+data %>% summarize(varMinTemp=var(`Minimum Temperature`))
+data %>% summarize(sdTemp=sd(Temperature))
+data %>% summarize(corWind=cor(`Wind Speed`, `Wind Direction`))
+data %>% summarize(maxRelativeHumidity=max(`Relative Humidity`))
+data %>% summarize(n_distinct(`Heat Index`))
+data %>% summarize(Visibility, n())
+
+# Summary statistics of categorical variables
+data %>% count(Date)
+data %>% count(Time)
+data %>% count(artistName)
+data %>% count(trackName)
+data %>% count(Name)
+data %>% count(Conditions)
+
+# Number of missing values (NAs) for each variable
+colSums(is.na(data))
 ```
 
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+I broke up my code into a couple of sections separated by a comment. My most interesting finding was the fact I listened to a Taylor Swift song 454 times over the course of two months followed closely by Kanye West at 182 listens. I'm surprised because as a Taylor Swift fan, I'm not "supposed" to like Kanye West. His album did come out during the time data was taken, although I didn't think I listened to him that many times. I was also surprised I listened to Swan Song the most. I could've sworn I would have listened to a Taylor song the most since I listened to her significantly more than any other artist, but it makes sense that I listen to a lot of Taylor songs that add up to that number. 
+
+I was also surprised by the breakdown of the number of times I listened to Taylor's songs. I listened to Wildest Dreams (Taylor's Version) 39 times, long story short 23 times, and Look What You Made Me Do 19 times. I was also interested to see that I didn't have a preference for temperature. I mostly listen to Kanye West, Taylor Swift, and Olivia Rodrigo repeatedly in one day. 
 
 
 #### Visualizing
 
 ```{R}
-# your plot 1
+data %>% ggplot(aes(Date, Temperature, color = Temperature)) +  
+  geom_point(size=1) + 
+  ggtitle("Date vs. Temperature") + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90)) + scale_y_discrete(name="Temperature F", limits=c(61, 71, 81))
 ```
 
-Your discussion of plot 1
+This is a graph of Date as related to Temperature. We notice that 
+the temperature gradually decreases as the date moves closer to the 
+winter months. 
 
 ```{R}
-# your plot 2
+data %>% ggplot(aes(Conditions)) + geom_bar(color="black", fill="pink") +
+  ggtitle("Count of Different Weather Conditions") + theme_classic() +
+  coord_flip() + scale_y_discrete(name="Count of Weather Conditions", 
+                                  limits=c(0, 250, 500, 750, 1000, 1250, 1500))
 ```
 
-Your discussion of plot 2
+This graph returns the frequency of conditions for every song I listened to. 
+Here I found that I listened to music most when weather conditions were 
+classified as 'clear,' and I listened to music least when the weather conditions 
+were classified as 'cloudy.'
 
 ```{R}
-# your plot 3
+data %>% ggplot(aes(`Minimum Temperature`, `Maximum Temperature`, color = `Minimum Temperature`)) + 
+  geom_point(stat="summary") + geom_line() +
+  scale_x_discrete(limits=c(50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78)) +
+  ggtitle("Minimum Temperature vs. Maximum Temperature") + theme_light() + scale_y_discrete("Count of Weather Conditions")
 ```
 
-Your discussion of plot 3
+This is a graph of minimum temperature vs. maximum temperature. Here we generally see 
+that the higher the minimum temperature, the higher the maximum temperature. Same 
+for the lower the minimum temperature, the lower the maximum temperature. I also 
+added more tick marks here than the default provided on the x axis. I also used 
+stat = summary here. 
 
 #### Concluding Remarks
 
-If any!
+I've had fun applying what I've learned in class to this project. I 
+am excited to learn more throughout the rest of the semester. While I did find that I listned to Taylor Swift the most, I was surprised to find that I listen to music on cloudy days the least. Overall, I'm so happy I can do my own Spotify Wrapped and got to see my listening trends for myself. 
 
 
 
